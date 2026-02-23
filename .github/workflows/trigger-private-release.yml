@@ -15,7 +15,6 @@ jobs:
         with:
           app-id: ${{ secrets.XNAT_GITHUB_APP_ID }}
           private-key: ${{ secrets.XNAT_GITHUB_APP_PRIVATE_KEY }}
-          installation-id: ${{ secrets.XNAT_GITHUB_APP_INSTALLATION_ID }}
           permission-metadata: read
           permission-contents: read
           permission-actions: write
