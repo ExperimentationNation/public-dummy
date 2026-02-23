@@ -66,20 +66,34 @@ jobs:
             https://api.github.com/repos/ExperimentationNation/devops-experiments
 
             
+#      - name: Get app token
+#        id: app-token
+#        uses: actions/create-github-app-token@v2
+#        with:
+#          app-id: ${{ secrets.XNAT_GITHUB_APP_ID }}
+#          private-key: ${{ secrets.XNAT_GITHUB_APP_PRIVATE_KEY }}
+#          permission-metadata: read
+#          permission-contents: read
+#          permission-actions: write
+#          owner: ExperimentationNation
+ #         repositories: |
+ #           public-dummy
+ #           devops-experiments
+
       - name: Get app token
         id: app-token
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.XNAT_GITHUB_APP_ID }}
           private-key: ${{ secrets.XNAT_GITHUB_APP_PRIVATE_KEY }}
-          permission-metadata: read
-          permission-contents: read
-          permission-actions: write
           owner: ExperimentationNation
- #         repositories: |
- #           public-dummy
- #           devops-experiments
-
+          permissions: >
+            {
+              "actions": "write",
+              "contents": "read",
+              "metadata": "read"
+            }
+      
       - name: Inspect the token accepted permissions header on a repo-scoped request
         run: |
           curl -i \
