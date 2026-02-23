@@ -47,7 +47,7 @@ jobs:
       - name: Mint installation token for the org installation
         # Replace <ORG_INSTALLATION_ID> with the id from the previous step
         env:
-          INST_ID: <ORG_INSTALLATION_ID>
+          INST_ID: ${{ secrets.XNAT_GITHUB_APP_INSTALLATION_ID }}
         run: |
           curl -sS -X POST \
             -H "Authorization: Bearer ${{ steps.jwt.outputs.jwt }}" \
