@@ -14,21 +14,28 @@ jobs:
         with:
             node-version: 24
             
+      - name: Install auth app helper
+        run: npm install @octokit/auth-app jq
+
       - name: Create app JWT
         id: jwt
-        run: |
-          cat > app.json <<'EOF'
-          {
-            "appId": ${APP_ID},
-            "privateKey": "${APP_KEY}"
-          }
-          EOF
-          npm install -g @octokit/auth-app jq
-          JWT=$(node -e "const { auth } = require('@octokit/auth-app'); (async () => { const { token } = await auth({ appId: process.env.APP_ID, privateKey: process.env.APP_KEY }); console.log(token); })();")
-          echo "jwt=${JWT}" >> $GITHUB_OUTPUT
         env:
           APP_ID: ${{ secrets.XNAT_GITHUB_APP_ID }}
           APP_KEY: ${{ secrets.XNAT_GITHUB_APP_PRIVATE_KEY }}
+        run: |
+          JWT=$(node - <<'EOF'
+          const { createAppAuth } = require("@octokit/auth-app");
+          (async () => {
+            const auth = createAppAuth({
+              appId: process.env.APP_ID,
+              privateKey: process.env.APP_KEY,
+            });
+            const { token } = await auth({ type: "app" });
+            console.log(token);
+          })();
+          EOF
+          )
+          echo "jwt=${JWT}" >> $GITHUB_OUTPUT
 
       - name: List app installations (confirm org vs user)
         run: |
@@ -39,12 +46,13 @@ jobs:
 
       - name: Mint installation token for the org installation
         # Replace <ORG_INSTALLATION_ID> with the id from the previous step
+        env:
+          INST_ID: <ORG_INSTALLATION_ID>
         run: |
-          INSTALLATION_ID=<ORG_INSTALLATION_ID>
           curl -sS -X POST \
             -H "Authorization: Bearer ${{ steps.jwt.outputs.jwt }}" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/app/installations/${INSTALLATION_ID}/access_tokens > token.json
+            https://api.github.com/app/installations/${INST_ID}/access_tokens > token.json
           cat token.json
           TOKEN=$(jq -r '.token' token.json)
           echo "token=${TOKEN}" >> $GITHUB_OUTPUT
