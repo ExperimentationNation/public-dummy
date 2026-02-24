@@ -9,103 +9,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Use Node.js LTS
-        uses: actions/setup-node@v3
-        with:
-            node-version: 24
-            
-      - name: Install auth app helper
-        run: npm install @octokit/auth-app jq
-
-      - name: Create app JWT
-        id: jwt
-        env:
-          APP_ID: ${{ secrets.XNAT_GITHUB_APP_ID }}
-          APP_KEY: ${{ secrets.XNAT_GITHUB_APP_PRIVATE_KEY }}
-        run: |
-          JWT=$(node - <<'EOF'
-          const { createAppAuth } = require("@octokit/auth-app");
-          (async () => {
-            const auth = createAppAuth({
-              appId: process.env.APP_ID,
-              privateKey: process.env.APP_KEY,
-            });
-            const { token } = await auth({ type: "app" });
-            console.log(token);
-          })();
-          EOF
-          )
-          echo "jwt=${JWT}" >> $GITHUB_OUTPUT
-
-      - name: List app installations (confirm org vs user)
-        run: |
-          curl -sS -H "Authorization: Bearer ${{ steps.jwt.outputs.jwt }}" \
-               -H "Accept: application/vnd.github+json" \
-               https://api.github.com/app/installations | jq '.[] | {id, account: .account.login}'
-        # Note the installation id where account.login == "ExperimentationNation"
-
-      - name: Mint installation token for the org installation
-        # Replace <ORG_INSTALLATION_ID> with the id from the previous step
-        env:
-          INST_ID: ${{ secrets.XNAT_GITHUB_APP_INSTALLATION_ID }}
-        run: |
-          curl -sS -X POST \
-            -H "Authorization: Bearer ${{ steps.jwt.outputs.jwt }}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/app/installations/${INST_ID}/access_tokens > token.json
-          cat token.json
-          TOKEN=$(jq -r '.token' token.json)
-          echo "token=${TOKEN}" >> $GITHUB_OUTPUT
-        id: inst
-
-      - name: Inspect accepted permissions on target repo
-        run: |
-          curl -i \
-            -H "Authorization: Bearer ${{ steps.inst.outputs.token }}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/ExperimentationNation/devops-experiments
-
-            
+           
       - name: Get app token
         id: app-token
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.XNAT_GITHUB_APP_ID }}
           private-key: ${{ secrets.XNAT_GITHUB_APP_PRIVATE_KEY }}
-          permission-metadata: read
-          permission-contents: write
-          permission-actions: write
           owner: ExperimentationNation
 
-      - name: Inspect the token accepted permissions header on a repo-scoped request
-        run: |
-          curl -i \
-            -H "Authorization: Bearer ${{ steps.app-token.outputs.token }}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/ExperimentationNation/devops-experiments
-
-      - name: Debug - list repos visible to installation token
-        run: |
-          curl -sS \
-            -H "Authorization: Bearer ${{ steps.app-token.outputs.token }}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/installation/repositories | jq -r '.repositories[].full_name'
-
-      - name: Token type sanity check
-        run: |
-          curl -i -H "Authorization: Bearer ${{ steps.app-token.outputs.token }}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/installation/repositories
-
-      - name: Direct repository_dispatch via curl (diagnostic)
-        run: |
-          set -euxo pipefail
-          curl -i -X POST \
-            -H "Authorization: Bearer ${{ steps.app-token.outputs.token }}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/ExperimentationNation/devops-experiments/dispatches \
-            -d '{"event_type":"kick-off-private-release","client_payload":{"release_tag":"'"${{ github.event.release.tag_name }}"'","public_repo":"'"${{ github.repository }}"'"}}'
-          
       - name: Send repository dispatch to private repo
         uses: peter-evans/repository-dispatch@v3
         with:
